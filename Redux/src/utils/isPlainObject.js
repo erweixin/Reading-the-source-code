@@ -1,4 +1,5 @@
 /**
+ * 判断是否是通过字面量形式或者new Object()形式定义的对象。
  * @param {any} obj The object to inspect.
  * @returns {boolean} True if the argument appears to be a plain object.
  */

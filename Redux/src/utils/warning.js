@@ -1,5 +1,7 @@
 /**
  * Prints a warning in the console if it exists.
+ * 如果console.error可用，console..error(message)
+ * 并throw new Error(message)
  *
  * @param {String} message The warning message.
  * @returns {void}

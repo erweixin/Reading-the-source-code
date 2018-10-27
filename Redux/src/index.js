@@ -9,6 +9,8 @@ import __DO_NOT_USE__ActionTypes from './utils/actionTypes'
 /*
  * This is a dummy function to check if the function name has been altered by minification.
  * If the function has been minified and NODE_ENV !== 'production', warn the user.
+ * 在非生产环境下使用Redux的压缩版本时警告用户。
+ * 压缩时会改变函数名，导致isCrushed函数变为类似function a() {}。function a函数名不等于‘isCrushed’，由此可判断使用的Redux是否是压缩版本。
  */
 function isCrushed() {}
 
@@ -25,7 +27,15 @@ if (
       'to ensure you have the correct code for your production build.'
   )
 }
-
+/**
+ * 该文件暴露出Redux的所有API,详细解释请参考各个文件。
+ * createStore
+ * combineReducers
+ * bindActionCreeators
+ * applyMiddleWare
+ * compose
+ * __DO_NOT_USE__ActionTypes
+ */
 export {
   createStore,
   combineReducers,

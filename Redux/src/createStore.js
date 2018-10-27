@@ -19,7 +19,7 @@ import isPlainObject from './utils/isPlainObject'
  * previously serialized user session.
  * If you use `combineReducers` to produce the root reducer function, this must be
  * an object with the same shape as `combineReducers` keys.
- *
+ * enhancer为一个接受createStore为参数并返回一个加强版createStore的函数。
  * @param {Function} [enhancer] The store enhancer. You may optionally specify it
  * to enhance the store with third-party capabilities such as middleware,
  * time travel, persistence, etc. The only store enhancer that ships with Redux
@@ -39,7 +39,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
         'together to a single function'
     )
   }
-
+  // 处理无preloadedState参数，由enhancer参数的情况。
   if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
     enhancer = preloadedState
     preloadedState = undefined
@@ -122,9 +122,15 @@ export default function createStore(reducer, preloadedState, enhancer) {
           'See https://redux.js.org/api-reference/store#subscribe(listener) for more details.'
       )
     }
-
+    // 局部作用于，unsubscribe()后isSubscribed会变为false。再次调用unsubscribe()就会直接返回。
     let isSubscribed = true
-
+    // nextListeners与currentListeners的区别和意义
+    // dispatch时会执行const listeners = (currentListeners = nextListeners)。
+    // 这样假如在dispatch调用listener时。subscribe了一个新的listener,这时currentListeners === nextListeners，ensureCanMutateNextListeners()的判断条件会成立，nextListeners就会变成currentListeners的浅拷贝。
+    // 订阅和取消订阅均是在nextlisteners数组上操作。
+    // 当下次dispatch时，const listeners = (currentListeners = nextListeners)。nextListeners就会生效。
+    // 从而实现了dispatch期间订阅或者取消订阅仅能在下次dispatch时生效。不会影响本次dispatch。就不会造成如下的混乱：
+    // 比如在通知订阅的过程中，如果发生了退订，那就既有可能成功退订(在通知之前就执行了currentListeners.splice(index, 1))或者没有成功退订(在已经通知了之后才执行了currentListeners.splice(index, 1))。
     ensureCanMutateNextListeners()
     nextListeners.push(listener)
 
@@ -169,6 +175,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * string constants for action types.
    *
    * @returns {Object} For convenience, the same action object you dispatched.
+   * dispatch一个cation，调用currentReducer(经过combineReducers合成过的reducer),将返回值赋值给currentState，用于getState。
+   * 同时调用所有的listeners。返回值为dispatch的action。
+   * 如果存在中间件，该函数会作为dispatch链的最后一个，因为reducer要求是纯函数，reducer的过程中不能dispatch另一个action,所以可以通过isDispatching判断是否在dispatch action。
    *
    * Note that, if you use a custom middleware, it may wrap `dispatch()` to
    * return something else (for example, a Promise you can await).
@@ -194,6 +203,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
 
     try {
       isDispatching = true
+      // currentState中传入的state的优先级会高于reducer中state = ''的默认值。这是因为 currentState 会做为 state 传递到 reducer 中，state 的值不再是 undefined ，ES6 的默认参数不会生效。
       currentState = currentReducer(currentState, action)
     } finally {
       isDispatching = false
@@ -214,6 +224,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * You might need this if your app implements code splitting and you want to
    * load some of the reducers dynamically. You might also need this if you
    * implement a hot reloading mechanism for Redux.
+   * 使用新的reducer替代现有的reducer,并dispatch一个action用于获取新reducer中默认的state.
    *
    * @param {Function} nextReducer The reducer for the store to use instead.
    * @returns {void}
@@ -243,6 +254,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
        * @returns {subscription} An object with an `unsubscribe` method that can
        * be used to unsubscribe the observable from the store, and prevent further
        * emission of values from the observable.
+       * 另一种形式的subscribe接口，参数为一个对象，该对象有一个next函数属性，dispatch时会以state为参数调用该next函数。
        */
       subscribe(observer) {
         if (typeof observer !== 'object' || observer === null) {
@@ -269,6 +281,7 @@ export default function createStore(reducer, preloadedState, enhancer) {
   // When a store is created, an "INIT" action is dispatched so that every
   // reducer returns their initial state. This effectively populates
   // the initial state tree.
+  // dispatch一个用户初始化的action,这样可以获取各个reducer初始化的state加到state树上。
   dispatch({ type: ActionTypes.INIT })
 
   return {

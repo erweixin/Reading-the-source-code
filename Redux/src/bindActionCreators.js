@@ -5,6 +5,9 @@ function bindActionCreator(actionCreator, dispatch) {
 }
 
 /**
+ * 把一个 value 为不同 action creator 的对象，转成拥有同名 key 的对象。同时使用 dispatch 对每个 action creator 进行包装，以便可以直接调用它们。
+ * 主要是讲返回的函数传给子组件，子组件直接调用该函数即可dispatch该actionCreator对应的action，子组件不用感知dispatch、redux的存在。
+ * 该函数实现逻辑教简单，可参考Redux中文文档具体示例理解。https://cn.redux.js.org/docs/api/bindActionCreators.html
  * Turns an object whose values are action creators, into an object with the
  * same keys, but with every function wrapped into a `dispatch` call so they
  * may be invoked directly. This is just a convenience method, as you can call
