@@ -124,13 +124,15 @@ export default function createStore(reducer, preloadedState, enhancer) {
     }
     // 局部作用于，unsubscribe()后isSubscribed会变为false。再次调用unsubscribe()就会直接返回。
     let isSubscribed = true
-    // nextListeners与currentListeners的区别和意义
-    // dispatch时会执行const listeners = (currentListeners = nextListeners)。
-    // 这样假如在dispatch调用listener时。subscribe了一个新的listener,这时currentListeners === nextListeners，ensureCanMutateNextListeners()的判断条件会成立，nextListeners就会变成currentListeners的浅拷贝。
+    // nextListeners 与 currentListeners 的区别和意义(可参考该 commit: https://github.com/reduxjs/redux/commit/c031c0a8d900e0e95a4915ecc0f96c6fe2d6e92b):
+    // 1.dispatch 期间订阅或者取消订阅仅能在下次dispatch时生效。不会影响本次dispatch。
+    // dispatch 时会执行 const listeners = (currentListeners = nextListeners)。
+    // 这样假如在 dispatch 调用listener 时。subscribe 了一个新的 listener ,这时 currentListeners === nextListeners，ensureCanMutateNextListeners()的判断条件会成立，nextListeners 就会变成 currentListeners 的浅拷贝。
     // 订阅和取消订阅均是在nextlisteners数组上操作。
     // 当下次dispatch时，const listeners = (currentListeners = nextListeners)。nextListeners就会生效。
     // 从而实现了dispatch期间订阅或者取消订阅仅能在下次dispatch时生效。不会影响本次dispatch。就不会造成如下的混乱：
     // 比如在通知订阅的过程中，如果发生了退订，那就既有可能成功退订(在通知之前就执行了currentListeners.splice(index, 1))或者没有成功退订(在已经通知了之后才执行了currentListeners.splice(index, 1))。
+    // 2.仅在必要 (dispatch期间第一次subscribe/unsubscribe) 时 copy listeners。
     ensureCanMutateNextListeners()
     nextListeners.push(listener)
 
