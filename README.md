@@ -2,8 +2,8 @@
 将阅读过的仓库源码整理至该仓库，以免占用fork仓库,也方便梳理源码解读文章。
 ## react
 - [x] redux
-- [ ] react-redux
-- [ ] redux-thunk
+- [x] react-redux
+- [x] redux-thunk
 - [ ] reselect
 - [ ] redux-saga
 - [ ] dva

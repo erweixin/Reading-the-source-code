@@ -6,6 +6,7 @@ export function impureFinalPropsSelectorFactory(
   mergeProps,
   dispatch
 ) {
+  // 根据state、ownProps获取新的props
   return function impureFinalPropsSelector(state, ownProps) {
     return mergeProps(
       mapStateToProps(state, ownProps),
@@ -28,7 +29,7 @@ export function pureFinalPropsSelectorFactory(
   let stateProps
   let dispatchProps
   let mergedProps
-
+  // 根据state、ownProps获取新的props
   function handleFirstCall(firstState, firstOwnProps) {
     state = firstState
     ownProps = firstOwnProps
@@ -38,7 +39,7 @@ export function pureFinalPropsSelectorFactory(
     hasRunAtLeastOnce = true
     return mergedProps
   }
-
+  // 根据state、ownProps获取新的props,当props和state都改变时调用该函数
   function handleNewPropsAndNewState() {
     stateProps = mapStateToProps(state, ownProps)
 
@@ -48,7 +49,7 @@ export function pureFinalPropsSelectorFactory(
     mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
     return mergedProps
   }
-
+  // 根据state、ownProps获取新的props,当props改变时调用该函数
   function handleNewProps() {
     if (mapStateToProps.dependsOnOwnProps)
       stateProps = mapStateToProps(state, ownProps)
@@ -59,7 +60,7 @@ export function pureFinalPropsSelectorFactory(
     mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
     return mergedProps
   }
-
+  // 根据state、ownProps获取新的props,当state改变时调用该函数
   function handleNewState() {
     const nextStateProps = mapStateToProps(state, ownProps)
     const statePropsChanged = !areStatePropsEqual(nextStateProps, stateProps)

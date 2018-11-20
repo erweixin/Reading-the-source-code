@@ -65,6 +65,7 @@ class Provider extends Component {
     const Context = this.props.context || ReactReduxContext
     // 采用react新的context api；
     // 使用Context.Provider 的value参数将redux state传入react组件全局
+    // 采用this.props.children避免每次value更改的时候子组件均会重新渲染
     // this.state = {
     //    storeState: store.getState(),
     //    store
