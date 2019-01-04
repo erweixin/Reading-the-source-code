@@ -1,11 +1,21 @@
 import { join } from 'path';
 import { addSideEffect, addDefault, addNamed } from '@babel/helper-module-imports';
 
+/**
+ * Button ==> button
+ * ButtonGroup ==> button-group
+ * @param {*} _str 
+ */
 function camel2Dash(_str) {
   const str = _str[0].toLowerCase() + _str.substr(1);
   return str.replace(/([A-Z])/g, ($1) => `-${$1.toLowerCase()}`);
 }
 
+/**
+ * Button ==> button
+ * ButtonGroup ==> button_group
+ * @param {*} _str 
+ */
 function camel2Underline(_str) {
   const str = _str[0].toLowerCase() + _str.substr(1);
   return str.replace(/([A-Z])/g, ($1) => `_${$1.toLowerCase()}`);
@@ -103,6 +113,14 @@ export default class Plugin {
     return Object.assign({}, pluginState.selectedMethods[methodName]);
   }
 
+  /**
+   * 判断node 的 prop 属性中是否由自 libraryName 中引入的组件
+   * 如果有，则将该属性替换成 importMethod 返回值
+   * @param {*} node 
+   * @param {*} props 
+   * @param {*} path 
+   * @param {*} state 
+   */
   buildExpressionHandler(node, props, path, state) {
     const file = (path && path.hub && path.hub.file) || (state && state.file);
     const types = this.types;
@@ -387,15 +405,31 @@ export default class Plugin {
     }
   }
 
+  // 对象{} 的属性
+  // 可以查看以下表达式的 AST 树
+  // const ss = {
+	//   tt: Button
+  // }
   Property(path, state) {
     const { node } = path;
     this.buildDeclaratorHandler(node, 'value', path, state);
   }
 
+  // 赋值给一个 var 变量
+  // 可以查看以下表达式的 AST 树
+  // const tt = Button;　var tt = Button;
   VariableDeclarator(path, state) {
     const { node } = path;
     this.buildDeclaratorHandler(node, 'init', path, state);
   }
+
+  // 数组 
+  // 查看以下测试用例：
+  // import { Button } from 'antd';
+
+  // var a = [Button];
+  // var b = { 'test': [Button] };
+  // [Button].map(function(){});
 
   ArrayExpression(path, state) {
     const { node } = path;
@@ -403,15 +437,24 @@ export default class Plugin {
     this.buildExpressionHandler(node.elements, props, path, state);
   }
 
+  // 参考conditions 测试用例
+  // Button || 'a'; 'a' || Button
   LogicalExpression(path, state) {
     const { node } = path;
     this.buildExpressionHandler(node, ['left', 'right'], path, state);
   }
 
+  // 三元表达式 参考 conditions 测试用例
+  // Select ? 'a' : 'b';
+  // a ? Select : 2;
+
   ConditionalExpression(path, state) {
     const { node } = path;
     this.buildExpressionHandler(node, ['test', 'consequent', 'alternate'], path, state);
   }
+
+  // 参考 conditions 测试用例
+  // if (Select) {}
 
   IfStatement(path, state) {
     const { node } = path;
@@ -419,6 +462,9 @@ export default class Plugin {
     this.buildExpressionHandler(node.test, ['left', 'right'], path, state);
   }
 
+  // 参考以下测试用例
+  // let tt;
+  // tt = Button;
   ExpressionStatement(path, state) {
     const { node } = path;
     const { types } = this;
@@ -426,6 +472,9 @@ export default class Plugin {
       this.buildExpressionHandler(node.expression, ['right'], path, state);
     }
   }
+
+  // 参考 return 测试用例
+  // 不过需要判断返回的属性的作用域是否在最外层引用处。
 
   ReturnStatement(path, state) {
     const types = this.types;
@@ -439,16 +488,28 @@ export default class Plugin {
       node.argument = this.importMethod(node.argument.name, file, pluginState);
     }
   }
+  // 可以参考以下测试用例的 AST 树
+  // import { DatePicker } from 'antd';
+  // export default DatePicker;  
 
   ExportDefaultDeclaration(path, state) {
     const { node } = path;
     this.buildExpressionHandler(node, ['declaration'], path, state);
   }
 
+  // 可以参考以下（export-import）测试用例的 AST 树
+  // import { Button } from 'antd';
+  // const extraProps = undefined === Button ? { type: 'primary' } : {};
+  // console.log(extraProps);
+
   BinaryExpression(path, state) {
     const { node } = path;
     this.buildExpressionHandler(node, ['left', 'right'], path, state);
   }
+
+  // 可以参考以下测试用例的 AST 树
+  // import { Button } from 'antd';
+  // new Button();
 
   NewExpression(path, state) {
     const { node } = path;
