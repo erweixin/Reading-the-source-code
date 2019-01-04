@@ -46,6 +46,7 @@ export default class Plugin {
     this.pluginStateKey = `importPluginState${index}`;
   }
 
+  // 获取一个 state[this.pluginStateKey] 对象，利用state可以传递的特性，该对象用来存储一些信息。state属性包含了插件的options和其他数据。
   getPluginState(state) {
     if (!state[this.pluginStateKey]) {
       state[this.pluginStateKey] = {};  // eslint-disable-line
@@ -59,18 +60,32 @@ export default class Plugin {
     return !!parentPath && parentPath.isProgram();
   }
 
+  /**
+   * 
+   * @param {*} methodName import { Button as _button } from 'antd' 中的 Button
+   * @param {*} file 
+   * @param {*} pluginState 
+   */
   importMethod(methodName, file, pluginState) {
     if (!pluginState.selectedMethods[methodName]) {
       const libraryDirectory = this.libraryDirectory;
       const style = this.style;
+      // 转换后的 methodName，ButtonGroup 根据配置为 button-group 或 button_group
       const transformedMethodName = this.camel2UnderlineComponentName  // eslint-disable-line
         ? camel2Underline(methodName)
         : this.camel2DashComponentName
           ? camel2Dash(methodName)
           : methodName;
+      // 到组件的 path
+      // 例如： "antd/es/button"
       const path = winPath(
         this.customName ? this.customName(transformedMethodName) : join(this.libraryName, libraryDirectory, transformedMethodName, this.fileName) // eslint-disable-line
       );
+      /**
+       * addNamed:  addNamed(path, 'named', 'source');   ===> import { named } from "source"
+       * addDefault(path, 'source', { nameHint: "hintedName" }); ===> import hintedName from "source"
+       * addSideEffect(path, 'source'); ===> import "source"
+       */
       pluginState.selectedMethods[methodName] = this.transformToDefaultImport  // eslint-disable-line
         ? addDefault(file.path, path, { nameHint: methodName })
         : addNamed(file.path, methodName, path);
@@ -112,18 +127,118 @@ export default class Plugin {
     }
   }
 
+  // program enter 时触发该函数
   ProgramEnter(path, state) {
     const pluginState = this.getPluginState(state);
+    // 从 libraryName 引用的函数组成的对象
     pluginState.specified = Object.create(null);
+    // import * as another from 'antd' 时的别称组成的对象。
     pluginState.libraryObjs = Object.create(null);
     pluginState.selectedMethods = Object.create(null);
     pluginState.pathsToRemove = [];
   }
 
+  // program exit 时触发该函数
   ProgramExit(path, state) {
+    // program exit 时删除 pathsToRemove 中的所有 path
+    // 参考 https://github.com/jamiebuilds/babel-handbook/blob/master/translations/zh-Hans/plugin-handbook.md#%E5%88%A0%E9%99%A4%E4%B8%80%E4%B8%AA%E8%8A%82%E7%82%B9
     this.getPluginState(state).pathsToRemove.forEach(p => !p.removed && p.remove());
   }
 
+
+  // import 语句
+  // import { Button } form 'antd'
+  // 生成的 AST json表示如下：
+  body = [{
+    "type": "ImportDeclaration",
+    "start": 0,
+    "end": 29,
+    "loc": {
+      "start": {
+        "line": 1,
+        "column": 0
+      },
+      "end": {
+        "line": 1,
+        "column": 29
+      }
+    },
+    "specifiers": [
+      {
+        "type": "ImportSpecifier",
+        "start": 9,
+        "end": 15,
+        "loc": {
+          "start": {
+            "line": 1,
+            "column": 9
+          },
+          "end": {
+            "line": 1,
+            "column": 15
+          }
+        },
+        "imported": {
+          "type": "Identifier",
+          "start": 9,
+          "end": 15,
+          "loc": {
+            "start": {
+              "line": 1,
+              "column": 9
+            },
+            "end": {
+              "line": 1,
+              "column": 15
+            },
+            "identifierName": "Button"
+          },
+          "name": "Button"
+        },
+        "importKind": null,
+        "local": {
+          "type": "Identifier",
+          "start": 9,
+          "end": 15,
+          "loc": {
+            "start": {
+              "line": 1,
+              "column": 9
+            },
+            "end": {
+              "line": 1,
+              "column": 15
+            },
+            "identifierName": "Button"
+          },
+          "name": "Button"
+        }
+      }
+    ],
+    "importKind": "value",
+    "source": {
+      "type": "StringLiteral",
+      "start": 23,
+      "end": 29,
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 23
+        },
+        "end": {
+          "line": 1,
+          "column": 29
+        }
+      },
+      "extra": {
+        "rawValue": "antd",
+        "raw": "'antd'"
+      },
+      "value": "antd"
+    }
+  }]
+
+  // import 语句。例如：import { Button } form 'antd'
   ImportDeclaration(path, state) {
     const { node } = path;
 
@@ -137,8 +252,17 @@ export default class Plugin {
     if (value === libraryName) {
       node.specifiers.forEach(spec => {
         if (types.isImportSpecifier(spec)) {
+          /**
+           * import { Button } form 'antd' 写法下：
+           * spec.local.name、spec.imported.name 均为 Button 
+           * import { Button as _button } from 'antd' 写法下：
+           * spec.local.name 为 _button、spec.imported.name 为 Button
+           */
           pluginState.specified[spec.local.name] = spec.imported.name;
         } else {
+          // 例如： import * as anotherName from 'antd'
+          // spec 的types 为 ImportNamespaceSpecifier
+          // 此时 spec.local.name 为 anotherName
           pluginState.libraryObjs[spec.local.name] = true;
         }
       });
@@ -146,6 +270,55 @@ export default class Plugin {
     }
   }
 
+  // 函数调用，例如： Button()
+  body = {
+    "type": "ExpressionStatement",
+    "start": 57,
+    "end": 65,
+    "loc": {
+      "start": {
+        "line": 4,
+        "column": 0
+      },
+      "end": {
+        "line": 4,
+        "column": 8
+      }
+    },
+    "expression": {
+      "type": "CallExpression",
+      "start": 57,
+      "end": 65,
+      "loc": {
+        "start": {
+          "line": 4,
+          "column": 0
+        },
+        "end": {
+          "line": 4,
+          "column": 8
+        }
+      },
+      "callee": {
+        "type": "Identifier",
+        "start": 57,
+        "end": 63,
+        "loc": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 4,
+            "column": 6
+          },
+          "identifierName": "Button"
+        },
+        "name": "Button"
+      },
+      "arguments": []
+    }
+  }
   CallExpression(path, state) {
     const { node } = path;
     const file = (path && path.hub && path.hub.file) || (state && state.file);
@@ -153,14 +326,34 @@ export default class Plugin {
     const types = this.types;
     const pluginState = this.getPluginState(state);
 
+    // Button() AST 如下：
     if (types.isIdentifier(node.callee)) {
+      // pluginState.specified[name] 即为调用了 从 libraryName 引入的函数。
+      // 注意 import 语句中的 spec.local.name 为 _button、spec.imported.name 为 Button 
+      // 这样就保证了 import { Button as _button } from 'antd' 时， 仍能监控到 _button() 的调用。 
+      // 此时：pluginState.specified[name] 的值为 Button
       if (pluginState.specified[name]) {
+        // 重写callee
         node.callee = this.importMethod(pluginState.specified[name], file, pluginState);
       }
     }
 
+    // Button 作为函数参数时。
     node.arguments = node.arguments.map(arg => {
       const { name: argName } = arg;
+      // 这里判断作用域是为了防止以下情况：
+      // import { message } from 'antd';
+      
+      // function App() {
+      //   const message = 'xxx';
+      //   return <div>{message}</div>;
+      // }
+      // message 会作为参数传递给 react.createElement 函数。
+      // 当 message 作为参数时，作用域所在 type 不是 importSpecifier 证明存在重新赋值。此时不能改变 node.arguments 。
+
+      // 作用域相关可查看 https://github.com/jamiebuilds/babel-handbook/blob/master/translations/zh-Hans/plugin-handbook.md#scope%E4%BD%9C%E7%94%A8%E5%9F%9F
+      
+      // 理解可参考该commit https://github.com/ant-design/babel-plugin-import/commit/773715b6eb46e8e89b055bdce4f875e14d361d2d
       if (pluginState.specified[argName] &&
         path.scope.hasBinding(argName) &&
         path.scope.getBinding(argName).path.type === 'ImportSpecifier') {
@@ -170,6 +363,7 @@ export default class Plugin {
     });
   }
 
+  // .符号属性调用。例如： antd.Button
   MemberExpression(path, state) {
     const { node } = path;
     const file = (path && path.hub && path.hub.file) || (state && state.file);
@@ -178,10 +372,17 @@ export default class Plugin {
     // multiple instance check.
     if (!node.object || !node.object.name) return;
 
+    /**
+     * pluginState.libraryObjs 为 import * as tt from 'antd' 中 tt 组成的对象
+     * antd.Button 调用的情况下。
+     * node.object.name ===> antd
+     * node.property.name ===> button
+     */
     if (pluginState.libraryObjs[node.object.name]) {
       // antd.Button -> _Button
       path.replaceWith(this.importMethod(node.property.name, file, pluginState));
     } else if (pluginState.specified[node.object.name]) {
+      // button.xxx 时。node.object.name ===> button
       node.object = this.importMethod(pluginState.specified[node.object.name], file, pluginState);
     }
   }
