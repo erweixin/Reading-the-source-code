@@ -4,31 +4,32 @@
 
 ## 已完成
 
-### react 相关
+### react
 - [x] redux
 - [x] react-redux
 - [x] redux-thunk
 
-### node 相关
+### node
 - [x] koa
 - [x] compose [如何更好的理解compose源码(4.1.0)？](https://github.com/erweixin/reading-the-source-code/tree/master/compose)
 - [x] koa-router
 
-## working
+### 前端工程化
+- [x] babel-plugin-import
 
-- [ ] babel-plugin-import
+## working
+- [ ] dva
 
 ## todo
 
-### react 相关 
+### react
 - [ ] reselect
 - [ ] redux-saga
-- [ ] dva
 
-### node 相关
+### node
 - [ ] egg-core
 
-### VUE 相关
+### VUE
 - [ ] vue
 - [ ] vue-router
 - [ ] vuex
